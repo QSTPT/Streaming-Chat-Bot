@@ -1,0 +1,38 @@
+[tool.setuptools.packages.find]
+include = ["app", "excalidraw"]
+
+[tool.uvicorn]
+app = "app.main:app"
+port = 8000
+# this way you can import your app anywhere.
+
+[project.scripts]
+chat-bot = "app.main:app"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Streaming-Chat-Bot"
+version = "0.1.0"
+description = "Streaming Chat Bot by Websocker server"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "fastapi",
+    "pydantic",
+    "uvicorn",
+    "sqlalchemy",
+    "pyjwt",
+    "passlib[argon2]",
+    "websockets",
+    "dotenv",
+    "groq"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+]
