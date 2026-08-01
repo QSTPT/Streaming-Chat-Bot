@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LLM WebSocket Test</title>
+</head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 20px auto;">
+    <h2>Streaming Chatbot Test</h2>
+    <div id="chat" style="border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; margin-bottom: 10px;"></div>
+    
+    <input type="text" id="msg" placeholder="Type a message..." style="width: 70%;">
+    <button onclick="sendMsg()">Send</button>
+    <button onclick="stopStream()" style="color: red;">Stop</button>
+
+    <script>
+        const ws = new WebSocket("ws://127.0.0.1:8000/ws/chat");
+        const chat = document.getElementById("chat");
+        let currentBotDiv = null;
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === "token") {
+                if (!currentBotDiv) {
+                    currentBotDiv = document.createElement("p");
+                    currentBotDiv.innerHTML = "<b>Bot:</b> ";
+                    chat.appendChild(currentBotDiv);
+                }
+                currentBotDiv.innerHTML += data.content;
+                chat.scrollTop = chat.scrollHeight;
+            } else if (data.type === "end" || data.type === "stopped") {
+                currentBotDiv = null;
+            }
+        };
+
+        function sendMsg() {
+            const input = document.getElementById("msg");
+            if (!input.value.strip && !input.value.trim()) return;
+            
+            const userP = document.createElement("p");
+            userP.innerHTML = "<b>You:</b> " + input.value;
+            chat.appendChild(userP);
+            
+            ws.send(JSON.stringify({ action: "message", content: input.value }));
+            input.value = "";
+        }
+
+        function stopStream() {
+            ws.send(JSON.stringify({ action: "stop" }));
+        }
+    </script>
+</body>
+</html>
