@@ -37,5 +37,11 @@
 
 #
 
+### How to install dependencies?
+- clone the repo
+- pip install -e .
+
+#
+
 ### Why not SSE instead of Websocket?
 SSE is made for one line communication, user **can't** send events when Ai is mid response; which means no `Stop Generating` which is **bad**.
