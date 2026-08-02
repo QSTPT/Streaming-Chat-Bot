@@ -49,7 +49,7 @@ def logout(response: Response, request: Request, db: Session = Depends(get_db)) 
     return user_progress.logout(response, request, db)  
 
 @app.websocket("/ws/chats")
-async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get_db)): # When we add session there will be no user_id. we will get it via user_session
+async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get_db)): 
     
     current_user = get_current_user_websocket(websocket, db)
 
