@@ -1,8 +1,9 @@
 import hashlib
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session, joinedload
-from app.database.models import UserSession
+from app.database.models import UserSession, User
 import secrets
+from fastapi import WebSocket
 
 SESSION_EXPIRE_DAYS = 7 
 COOKIE_NAME = "historia_session"
@@ -46,9 +47,21 @@ def verify_session(db:Session, token:str) -> UserSession | None:
         ).first()
     )
     
-# Use it inside logout    
+       
 def delete_session(db:Session, raw_token:str) -> None:
     db.query(UserSession).filter(
         UserSession.token_hash == hash_session(raw_token)
     ).delete()
     db.commit()
+    
+    
+def get_current_user_websocket(websocket: WebSocket, db: Session) -> User:
+    raw_token = websocket.cookies.get(COOKIE_NAME)
+    if not raw_token:
+        raise ValueError("No session token")
+
+    session_record = verify_session(db, raw_token)
+    if session_record is None:
+        raise ValueError("Invalid session")
+
+    return session_record.user
