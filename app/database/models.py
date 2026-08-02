@@ -24,7 +24,7 @@ class Chat(Base):
 class UserMessage(Base):
     __tablename__ = "UserMessage"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE"), nullable=False) # This has no use. we use chat for finding messages of the user. maybe admin will use it oneday for getting total token usage.
     chat_id = Column(Integer, ForeignKey("Chat.id", ondelete="CASCADE"), nullable=False)
     content = Column(String(600), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
