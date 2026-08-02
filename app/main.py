@@ -1,8 +1,13 @@
 import json
 import asyncio
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from groq import AsyncGroq
+from model_stream import stream_llm_response, listen_for_interrupt_or_complete
+from database.schemas import CreateUserSchema
+from sqlalchemy.orm import Session
+from database.database import get_db
+import user_progress
 
 # Automatically load environment variables from .env
 load_dotenv()
@@ -10,41 +15,10 @@ load_dotenv()
 app = FastAPI(title="LLM Streaming WebSocket API")
 groq_client = AsyncGroq()
 
-async def stream_llm_response(websocket: WebSocket, history: list) -> str:
-    accumulated_text = ""
-    response_stream = await groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=history,
-        stream=True,
-        temperature=0.7,
-        max_tokens=1024,
-    )
+@app.post("/sign_up")
+def sign_up(user_input: CreateUserSchema, db: Session = Depends(get_db)):
+    return user_progress.sign_up(user_input, db)
 
-    async for chunk in response_stream:
-        delta = chunk.choices[0].delta.content
-        if delta:
-            accumulated_text += delta
-            await websocket.send_json({"type": "token", "content": delta})
-
-    await websocket.send_json({"type": "end"})
-    return accumulated_text
-
-async def listen_for_interrupt_or_complete(websocket: WebSocket, stream_task: asyncio.Task) -> str:
-    while not stream_task.done():
-        try:
-            raw_data = await asyncio.wait_for(websocket.receive_text(), timeout=0.01)
-            data = json.loads(raw_data)
-            if data.get("action") == "stop":
-                stream_task.cancel()
-                await websocket.send_json({"type": "stopped"})
-                break
-        except asyncio.TimeoutError:
-            continue
-
-    try:
-        return await stream_task
-    except asyncio.CancelledError:
-        return ""
 
 @app.websocket("/ws/chat")
 async def websocket_chat_endpoint(websocket: WebSocket):

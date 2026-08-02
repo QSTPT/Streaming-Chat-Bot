@@ -9,7 +9,6 @@ class User(Base):
     name = Column(String(255), nullable=False)
     username = Column(String(255), nullable=False, unique=True)
     password = Column(String(512), nullable=False)
-    active = Column(Boolean, default=False)
     
 class Chat(Base):
     __tablename__ = "Chat"
