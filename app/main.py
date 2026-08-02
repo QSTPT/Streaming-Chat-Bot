@@ -11,7 +11,7 @@ from app import user_progress
 from fastapi.security import OAuth2PasswordRequestForm
 from app.database.models import User, Chat, UserMessage, AssistantMessage
 from datetime import datetime, timezone
-from app.security.session_manager import COOKIE_NAME
+from app.security.session_manager import COOKIE_NAME, get_current_user_websocket
 import os
 
 # Automatically load environment variables from .env
@@ -48,10 +48,25 @@ def login(
 def logout(response: Response, request: Request, db: Session = Depends(get_db)) -> dict:
     return user_progress.logout(response, request, db)  
 
-@app.websocket("/ws/chat")
-async def websocket_chat_endpoint(websocket: WebSocket, user_id, chat_id, db:Session = Depends(get_db)): # When we add session there will be no user_id. we will get it via user_session.
+@app.websocket("/ws/chats")
+async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get_db)): # When we add session there will be no user_id. we will get it via user_session
+    
+    current_user = get_current_user_websocket(websocket, db)
+
     await websocket.accept()
 
+    new_chat_data = {
+        "user_id":current_user.id,
+        "created_at":datetime.now(timezone.utc),
+        "chat_name": "Untitle", #Later we will let the model generate the name.
+    }
+    new_chat = Chat(**new_chat_data)
+    db.add(new_chat)
+    db.commit()
+    db.refresh(new_chat)
+
+    chat = db.query(Chat).filter(Chat.user_id == current_user.id).first()
+    
     try:
         while True:
             raw_data = await websocket.receive_text()
@@ -62,19 +77,9 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id, chat_id, db:Ses
                 if not user_message:
                     continue
                 
-                new_chat_data = {
-                    "user_id":user_id, #Later when i add session there will be no user_id like that.
-                    "created_at":datetime.now(timezone.utc),
-                    "chat_name": "Untitle", #Later we will let the model generate the name.
-                }
-                new_chat = Chat(**new_chat_data)
-                db.add(new_chat)
-                db.commit()
-                db.refresh(new_chat)
-                
                 new_user_message_data = {
-                    "user_id":user_id,
-                    "chat_id":chat_id,
+                    "user_id":current_user.id,
+                    "chat_id":chat.id,
                     "content":user_message,
                     "created_at":datetime.now(timezone.utc)
                 }
@@ -85,13 +90,13 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id, chat_id, db:Ses
                 db.refresh(new_user_message)
 
             
-                stream_task = asyncio.create_task(stream_llm_response(websocket, chat_id, db))
+                stream_task = asyncio.create_task(stream_llm_response(websocket, chat.id, db))
                 full_response = await listen_for_interrupt_or_complete(websocket, stream_task)
 
                 if full_response:
                     new_assistant_message_data = {
                         "model_name":"llama-3.3-70b-versatile", #In the future we will add it automatically.
-                        "chat_id":chat_id,
+                        "chat_id":chat.id,
                         "content":full_response,
                         "created_at":datetime.now(timezone.utc)
                     }

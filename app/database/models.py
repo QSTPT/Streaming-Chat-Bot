@@ -11,13 +11,13 @@ class User(Base):
     password = Column(String(512), nullable=False)
     
 class UserSession(Base):
-    __tablename__ = "user_sessions"
+    __tablename__ = "UserSession"
     id = Column(Integer, primary_key=True, index=True)
     token = Column(String(64), unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE"), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     
-    user = relationship("User")
+    User = relationship("User")
     
     
 ## -- These models should be used inside Websocket; no need to use schema for them -- ##

@@ -64,4 +64,4 @@ def get_current_user_websocket(websocket: WebSocket, db: Session) -> User:
     if session_record is None:
         raise ValueError("Invalid session")
 
-    return session_record.user
+    return session_record.User
