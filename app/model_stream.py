@@ -1,7 +1,7 @@
 import json
 import asyncio
 from fastapi import WebSocket, Depends
-from database.database import Session, get_db
+from app.database.engine import Session, get_db
 from main import groq_client
 from database.models import UserMessage, AssistantMessage
 

@@ -1,16 +1,18 @@
 import json
 import asyncio
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Response, Request
 from groq import AsyncGroq
-from model_stream import stream_llm_response, listen_for_interrupt_or_complete
-from database.schemas import CreateUserSchema
+from app.model_stream import stream_llm_response, listen_for_interrupt_or_complete
+from app.database.schemas import CreateUserSchema
 from sqlalchemy.orm import Session
-from database.database import get_db
-import user_progress
+from app.database.engine import get_db
+from app import user_progress
 from fastapi.security import OAuth2PasswordRequestForm
-from database.models import User, Chat, UserMessage, AssistantMessage
+from app.database.models import User, Chat, UserMessage, AssistantMessage
 from datetime import datetime, timezone
+from app.security.session_manager import COOKIE_NAME
+import os
 
 # Automatically load environment variables from .env
 load_dotenv()
@@ -23,9 +25,28 @@ def sign_up(user_input: CreateUserSchema, db: Session = Depends(get_db)) -> User
     return user_progress.sign_up(user_input, db)
 
 @app.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db:Session = Depends(get_db)) -> dict:
-    user_progress.login(form_data.username, form_data.password, db)
+def login(
+    response: Response, 
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db:Session = Depends(get_db)) -> dict:
+    
+    auth_data = user_progress.login(form_data.username, form_data.password, db)
 
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=auth_data["session_token"],
+        httponly=True,
+        secure=os.getenv("SECURE_COOKIES", "true").lower() == "true",
+        samesite="lax",
+        max_age= 7 * 24 * 60 * 60
+    )
+    
+    return {"message": f"This is a simple test bot made for you! we are happy to have you here, {auth_data['user_name']}!"}
+  
+  
+@app.post("/logout")
+def logout(response: Response, request: Request, db: Session = Depends(get_db)) -> dict:
+    return user_progress.logout(response, request, db)  
 
 @app.websocket("/ws/chat")
 async def websocket_chat_endpoint(websocket: WebSocket, user_id, chat_id, db:Session = Depends(get_db)): # When we add session there will be no user_id. we will get it via user_session.
@@ -74,6 +95,11 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id, chat_id, db:Ses
                         "content":full_response,
                         "created_at":datetime.now(timezone.utc)
                     }
-
+                    
+                    new_assistant_message = AssistantMessage(**new_assistant_message_data)
+                    db.add(new_assistant_message)
+                    db.commit()
+                    db.refresh(new_assistant_message)
+                    
     except WebSocketDisconnect:
         print("Client disconnected.")

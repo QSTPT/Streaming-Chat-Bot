@@ -1,5 +1,5 @@
 # -- Imports -- #
-from ..database.database import Base
+from app.database.engine import Base
 from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, DateTime, Enum
 from sqlalchemy.orm import relationship
 
@@ -9,6 +9,15 @@ class User(Base):
     name = Column(String(255), nullable=False)
     username = Column(String(255), nullable=False, unique=True)
     password = Column(String(512), nullable=False)
+    
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(64), unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE"), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    
+    user = relationship("User")
     
     
 ## -- These models should be used inside Websocket; no need to use schema for them -- ##
