@@ -1,13 +1,23 @@
 import json
 import asyncio
-from fastapi import WebSocket
+from fastapi import WebSocket, Depends
+from database.database import Session, get_db
 from main import groq_client
+from database.models import UserMessage, AssistantMessage
 
-async def stream_llm_response(websocket: WebSocket, history: list) -> str:
+
+async def stream_llm_response(websocket: WebSocket, chat_id, db: Session = Depends(get_db)) -> str:
+    
+    user_content = db.query(UserMessage).filter(UserMessage.chat_id == chat_id).first().content
+    
+    assistant_content = db.query(AssistantMessage).filter(AssistantMessage.chat_id == chat_id).first().content()
+    both_side_message_list = [user_content, assistant_content]
+    
     accumulated_text = ""
+    
     response_stream = await groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
-        messages=history,
+        messages=both_side_message_list,
         stream=True,
         temperature=0.7,
         max_tokens=1024,

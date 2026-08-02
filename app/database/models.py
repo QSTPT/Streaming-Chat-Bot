@@ -10,6 +10,8 @@ class User(Base):
     username = Column(String(255), nullable=False, unique=True)
     password = Column(String(512), nullable=False)
     
+    
+## -- These models should be used inside Websocket; no need to use schema for them -- ##
 class Chat(Base):
     __tablename__ = "Chat"
     id = Column(Integer, primary_key=True, index=True)
@@ -34,9 +36,7 @@ class AssistantMessage(Base):
     id = Column(Integer, primary_key=True, index=True)
     model_name = Column(String(75), nullable=False)
     chat_id = Column(Integer, ForeignKey("Chat.id", ondelete="CASCADE"), nullable=False)
-    user_message_id = Column(Integer, ForeignKey("UserMessage.id", ondelete="CASCADE"), nullable=False)
     content = Column(String(4000), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
     
     Chat = relationship("Chat")
-    UserMessage = relationship("UserMessage")
