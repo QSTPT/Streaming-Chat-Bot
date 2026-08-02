@@ -17,7 +17,7 @@
 
 ### Later on:
 - Token Usage per conversation will be tracked.
-- Redis will be added for using chats and postgres for older chats.
+- Redis will be added for `using chats` and postgres for older chats.
 - handle production concerns.
 - add a responsive Frontend.
 - use fixed-sized seed to debug
