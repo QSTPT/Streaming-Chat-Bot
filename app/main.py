@@ -13,6 +13,7 @@ from app.database.models import User, Chat, UserMessage, AssistantMessage
 from datetime import datetime, timezone
 from app.security.session_manager import COOKIE_NAME, get_current_user_websocket
 import os
+from display_conversation import get_chat_history_db
 
 # Automatically load environment variables from .env
 load_dotenv()
@@ -48,7 +49,13 @@ def login(
 def logout(response: Response, request: Request, db: Session = Depends(get_db)) -> dict:
     return user_progress.logout(response, request, db)  
 
-@app.websocket("/ws/chats")
+@app.get("/chats")
+def display_chats(db:Session = Depends(get_db)):
+    current_user = get_current_user_websocket
+    chat = db.query(Chat).filter(Chat.user_id == current_user.id).all()
+    get_chat_history_db(db, chat.id)
+
+@app.websocket("/ws/current_chat")
 async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get_db)): 
     
     current_user = get_current_user_websocket(websocket, db)
@@ -66,6 +73,10 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
     db.refresh(new_chat)
 
     chat = db.query(Chat).filter(Chat.user_id == current_user.id).first()
+    
+    history = get_chat_history_db(db, chat.id)
+    
+    await websocket.send_json({"type": "history", "data": history})
     
     try:
         while True:
