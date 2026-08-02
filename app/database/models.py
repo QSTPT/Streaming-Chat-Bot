@@ -16,7 +16,7 @@ class Chat(Base):
     __tablename__ = "Chat"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE"), nullable=False)
-    chat_name = name = Column(String(255), nullable=False)
+    chat_name= Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
     
     User = relationship("User")

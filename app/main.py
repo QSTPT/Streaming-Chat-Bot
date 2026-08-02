@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from database.database import get_db
 import user_progress
 from fastapi.security import OAuth2PasswordRequestForm
-from database.models import User
+from database.models import User, Chat, UserMessage, AssistantMessage
+from datetime import datetime, timezone
 
 # Automatically load environment variables from .env
 load_dotenv()
@@ -27,9 +28,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db:Session = Depends
 
 
 @app.websocket("/ws/chat")
-async def websocket_chat_endpoint(websocket: WebSocket):
+async def websocket_chat_endpoint(websocket: WebSocket, user_id, chat_id, db:Session = Depends(get_db)): # When we add session there will be no user_id. we will get it via user_session.
     await websocket.accept()
-    history = []
 
     try:
         while True:
@@ -41,12 +41,39 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                 if not user_message:
                     continue
                 
-                history.append({"role": "user", "content": user_message})
-                stream_task = asyncio.create_task(stream_llm_response(websocket, history))
+                new_chat_data = {
+                    "user_id":user_id, #Later when i add session there will be no user_id like that.
+                    "created_at":datetime.now(timezone.utc),
+                    "chat_name": "Untitle", #Later we will let the model generate the name.
+                }
+                new_chat = Chat(**new_chat_data)
+                db.add(new_chat)
+                db.commit()
+                db.refresh(new_chat)
+                
+                new_user_message_data = {
+                    "user_id":user_id,
+                    "chat_id":chat_id,
+                    "content":user_message,
+                    "created_at":datetime.now(timezone.utc)
+                }
+                
+                new_user_message = UserMessage(**new_user_message_data)
+                db.add(new_user_message)
+                db.commit()
+                db.refresh(new_user_message)
+
+            
+                stream_task = asyncio.create_task(stream_llm_response(websocket, chat_id, db))
                 full_response = await listen_for_interrupt_or_complete(websocket, stream_task)
 
                 if full_response:
-                    history.append({"role": "assistant", "content": full_response})
+                    new_assistant_message_data = {
+                        "model_name":"llama-3.3-70b-versatile", #In the future we will add it automatically.
+                        "chat_id":chat_id,
+                        "content":full_response,
+                        "created_at":datetime.now(timezone.utc)
+                    }
 
     except WebSocketDisconnect:
         print("Client disconnected.")
