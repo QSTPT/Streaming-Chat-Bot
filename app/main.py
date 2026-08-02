@@ -8,6 +8,8 @@ from database.schemas import CreateUserSchema
 from sqlalchemy.orm import Session
 from database.database import get_db
 import user_progress
+from fastapi.security import OAuth2PasswordRequestForm
+from database.models import User
 
 # Automatically load environment variables from .env
 load_dotenv()
@@ -16,8 +18,12 @@ app = FastAPI(title="LLM Streaming WebSocket API")
 groq_client = AsyncGroq()
 
 @app.post("/sign_up")
-def sign_up(user_input: CreateUserSchema, db: Session = Depends(get_db)):
+def sign_up(user_input: CreateUserSchema, db: Session = Depends(get_db)) -> User:
     return user_progress.sign_up(user_input, db)
+
+@app.post("/login")
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db:Session = Depends(get_db)) -> dict:
+    user_progress.login(form_data.username, form_data.password, db)
 
 
 @app.websocket("/ws/chat")

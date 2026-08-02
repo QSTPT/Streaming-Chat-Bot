@@ -20,3 +20,17 @@ def sign_up(user_input, db:Session):
     db.commit()
     db.refresh(new_user)
     return new_user
+
+
+def login(username, password, db:Session):
+    user = db.query(User).filter(
+        User.username == username,
+        User.password == password
+    ).first()
+    
+    # Later When you add password hash you have to check the password via verify password!
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="Incorrect username or password"
+            )
