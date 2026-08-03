@@ -7,13 +7,13 @@
 #
 
 ### What are the fundamentals?
-- You can choose a model based on your preference.
+- You can <ins>choose</ins> a model based on your preference.
 - the LLM has been called in streaming mode
-- Websocket has been used for this chat-bot; so you can send events
-- each chat session is stored inside postgresql, including messages.
+- **Websocket** has been used for this chat-bot; so you can send events
+- each chat session is **stored** inside <ins>postgresql</ins>, including **messages**.
 - temperature, max_token, stop_sequence has been set.
-- Token Usage per conversation is tracked. 
-- Websocket manager for Multiple users streaming at once.
+- Token Usage per conversation is **tracked**. 
+- Websocket manager **Handles** Multiple users <ins>streaming at once</ins>.
 - Built-in logic to handle `max Token hits`.
 
 #
