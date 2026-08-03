@@ -29,10 +29,15 @@ def build_cookie_header(cookie_name: str, cookie_value: str) -> str:
     return f"{cookie_name}={cookie_value}"
 
 
-def authenticate(base_url: str, username: str, password: str) -> tuple[str, str]:
-    api_url = build_api_url(base_url, "/login")
+def authenticate(base_url: str, endpoint: str, username: str, password: str) -> tuple[str, str]:
+    api_url = build_api_url(base_url, endpoint)
     payload = parse.urlencode({"username": username, "password": password}).encode("utf-8")
-    req = request.Request(api_url, data=payload, headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+    req = request.Request(
+        api_url, 
+        data=payload, 
+        headers={"Content-Type": "application/x-www-form-urlencoded"}, 
+        method="POST"
+    )
 
     jar = cookiejar.CookieJar()
     opener = request.build_opener(request.HTTPCookieProcessor(jar))
@@ -42,7 +47,7 @@ def authenticate(base_url: str, username: str, password: str) -> tuple[str, str]
             body = response.read().decode("utf-8")
     except error.HTTPError as exc:
         body = exc.read().decode("utf-8")
-        raise RuntimeError(body or f"Authentication failed with status {exc.code}") from exc
+        raise RuntimeError(body or f"Request failed with status {exc.code}") from exc
     except error.URLError as exc:
         raise RuntimeError(f"Unable to reach the backend at {api_url}: {exc.reason}") from exc
 
@@ -50,53 +55,75 @@ def authenticate(base_url: str, username: str, password: str) -> tuple[str, str]
         if cookie.name == COOKIE_NAME:
             return cookie.value, body
 
-    raise RuntimeError("Login succeeded, but no session cookie was returned by the server")
+    raise RuntimeError("Success, but no session cookie was returned by the server.")
 
 
 class ChatApp(ft.Container):
     def __init__(self):
         super().__init__(expand=True, padding=12)
+        
         self.base_url = os.getenv("CHAT_BOT_BASE_URL", DEFAULT_BASE_URL)
         self.session_cookie: str | None = None
         self.websocket: Any | None = None
+        
         self.stream_active = False
         self.stream_content = ""
         self.stream_text_control: ft.Text | None = None
-        self.stream_container: ft.Container | None = None
+        self.stream_container: ft.Row | None = None
         
-        # UI State Controls
-        self.status_text = ft.Text("Ready to connect")
-        self.token_status = ft.Text("Tokens: 0 / 0")
+        # --- Screen Elements: Authentication ---
+        self.is_login_mode = True 
+        
+        self.auth_title = ft.Text("Welcome Back", size=32, weight=ft.FontWeight.BOLD)
+        self.auth_subtitle = ft.Text("Sign in to start chatting.", color=ft.Colors.BLUE_GREY_300)
+        self.username_field = ft.TextField(label="Username", width=320, border_radius=8)
+        self.password_field = ft.TextField(label="Password", password=True, can_reveal_password=True, width=320, border_radius=8)
+        self.auth_error_text = ft.Text("", color=ft.Colors.RED_400)
+        self.auth_button = ft.Button("Login", on_click=self.handle_auth, width=320, height=45)
+        self.toggle_auth_button = ft.TextButton("Don't have an account? Sign up here", on_click=self.toggle_auth_mode)
+        
+        # --- Screen Elements: Chat ---
+        self.status_text = ft.Text("Ready to connect", size=12, color=ft.Colors.BLUE_GREY_300)
+        self.token_status = ft.Text("Tokens: 0 / 0", size=12)
         self.reconnect_button = ft.TextButton("Reconnect", on_click=self.handle_reconnect, visible=False)
-        self.stop_button = ft.Button("Stop generating", on_click=self.handle_stop, visible=False)
+        self.stop_button = ft.Button("Stop generating", on_click=self.handle_stop, visible=False, bgcolor=ft.Colors.RED_900, color=ft.Colors.WHITE)
         self.history_view = ft.ListView(expand=True, spacing=10, padding=10, auto_scroll=True)
-        self.username_field = ft.TextField(label="Username", width=280)
-        self.password_field = ft.TextField(label="Password", password=True, width=280)
-        self.message_field = ft.TextField(label="Type a message", expand=True, on_submit=self.handle_send_message)
-        self.login_error_text = ft.Text("", color="red400")
+        self.message_field = ft.TextField(label="Type a message...", expand=True, on_submit=self.handle_send_message, border_radius=20)
         
-        # Set the active view directly on the root container
-        self.content = self.build_login_view()
+        self.content = self.build_auth_view()
 
-    def build(self) -> ft.Container:
-        return self.stream_container
-
-    def build_login_view(self) -> ft.Column:
-        return ft.Column(
+    # --- Screen Builders ---
+    def build_auth_view(self) -> ft.Container:
+        form_column = ft.Column(
             [
-                ft.Text("Welcome back", size=28, weight=ft.FontWeight.BOLD),
-                ft.Text("Sign in to start chatting with the local streaming bot.", color=ft.Colors.BLUE_GREY_300),
-                ft.Divider(),
+                self.auth_title,
+                self.auth_subtitle,
+                ft.Container(height=10),
                 self.username_field,
                 self.password_field,
-                ft.ElevatedButton("Login", on_click=self.handle_login),
-                self.login_error_text,
+                ft.Container(height=10),
+                self.auth_button,
+                self.toggle_auth_button,
+                self.auth_error_text,
                 self.status_text,
             ],
-            spacing=12,
+            spacing=10,
             alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            width=420,
+        )
+
+        return ft.Container(
+            content=ft.Card(
+                content=ft.Container(
+                    content=form_column,
+                    padding=40,
+                    width=420,
+                ),
+                elevation=8,
+                shape=ft.RoundedRectangleBorder(radius=16),
+            ),
+            alignment=ft.Alignment(0, 0),
+            expand=True,
         )
 
     def build_chat_view(self) -> ft.Column:
@@ -104,93 +131,124 @@ class ChatApp(ft.Container):
             [
                 ft.Row(
                     [
-                        ft.Text("Streaming Chat", size=24, weight=ft.FontWeight.BOLD),
+                        ft.Text("AI Chat", size=24, weight=ft.FontWeight.BOLD),
                         self.reconnect_button,
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
+                ft.Divider(color=ft.Colors.BLUE_GREY_800),
                 self.history_view,
                 ft.Row(
                     [
                         self.message_field,
-                        ft.ElevatedButton("Send", on_click=self.handle_send_message),
+                        ft.IconButton(icon=ft.Icons.SEND, on_click=self.handle_send_message, icon_color=ft.Colors.BLUE_400),
                         self.stop_button,
                     ],
                     spacing=8,
                     alignment=ft.MainAxisAlignment.CENTER,
                 ),
-                ft.Container(
-                    content=self.token_status,
-                    padding=8,
-                    border=ft.border.all(1, ft.colors.BLUE_GREY_700),
-                    border_radius=8,
-                    bgcolor=ft.colors.BLUE_GREY_900,
-                ),
-                self.status_text,
+                ft.Row(
+                    [
+                        ft.Container(
+                            content=self.token_status,
+                            padding=ft.padding.symmetric(horizontal=12, vertical=6),
+                            border=ft.border.all(1, ft.Colors.BLUE_GREY_800),
+                            border_radius=20,
+                            bgcolor=ft.Colors.BLUE_GREY_900,
+                        ),
+                        self.status_text,
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                )
             ],
             expand=True,
         )
 
-    def show_login_view(self) -> None:
-        self.view_container.content = self.build_login_view()
-        self.page.update()
+    # --- Screen Switching & UI Updates ---
+    def show_auth_view(self) -> None:
+        self.content = self.build_auth_view()
+        self.update()
 
     def show_chat_view(self) -> None:
-        self.view_container.content = self.build_chat_view()
-        self.page.update()
+        self.content = self.build_chat_view()
+        self.update()
+
+    def toggle_auth_mode(self, event: ft.ControlEvent) -> None:
+        self.is_login_mode = not self.is_login_mode
+        self.auth_error_text.value = ""
+        
+        if self.is_login_mode:
+            self.auth_title.value = "Welcome Back"
+            self.auth_subtitle.value = "Sign in to start chatting."
+            self.auth_button.text = "Login"
+            self.toggle_auth_button.text = "Don't have an account? Sign up here"
+        else:
+            self.auth_title.value = "Create Account"
+            self.auth_subtitle.value = "Sign up to start your journey."
+            self.auth_button.text = "Sign Up"
+            self.toggle_auth_button.text = "Already have an account? Log in here"
+            
+        self.update()
 
     def set_status(self, message: str) -> None:
         self.status_text.value = message
-        self.page.update()
+        self.update()
 
     def clear_error(self) -> None:
-        self.login_error_text.value = ""
-        self.page.update()
+        self.auth_error_text.value = ""
+        self.update()
 
-    def create_message_bubble(self, role: str, content: str) -> ft.Container:
+    def create_message_bubble(self, role: str, content: str) -> ft.Row:
         is_user = role == "user"
+        
         bubble = ft.Container(
-            content=ft.Text(content, selectable=True, max_lines=40),
-            padding=12,
-            border_radius=12,
-            bgcolor=ft.colors.BLUE_600 if is_user else ft.colors.GREY_900,
-            alignment=ft.alignment.center_left,
+            content=ft.Text(content, selectable=True),
+            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            border_radius=16,
+            bgcolor=ft.Colors.BLUE_800 if is_user else ft.Colors.BLUE_GREY_900,
+            alignment=ft.Alignment(-1, 0),
             margin=ft.margin.only(top=4, bottom=4),
-            width=420,
+            width=600, 
             animate=ft.animation.Animation(200, "decelerate"),
         )
-        if is_user:
-            bubble.alignment = ft.alignment.center_right
-        return bubble
+        
+        return ft.Row(
+            [bubble],
+            alignment=ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START,
+        )
 
+    # --- Chat Features ---
     def append_history(self, history: list[dict[str, Any]]) -> None:
         self.history_view.controls.clear()
         for message in history:
             content = str(message.get("content", ""))
             role = str(message.get("role", "assistant"))
             self.history_view.controls.append(self.create_message_bubble(role, content))
-        self.page.update()
+        self.update()
 
     def append_user_message(self, content: str) -> None:
         self.history_view.controls.append(self.create_message_bubble("user", content))
-        self.page.update()
+        self.update()
 
     def start_stream_message(self) -> None:
         self.stream_active = True
         self.stop_button.visible = True
         self.stream_content = ""
-        self.stream_text_control = ft.Text("", selectable=True, max_lines=40)
-        self.stream_container = ft.Container(
+        self.stream_text_control = ft.Text("", selectable=True)
+        
+        bubble = ft.Container(
             content=self.stream_text_control,
-            padding=12,
-            border_radius=12,
-            bgcolor=ft.colors.GREY_900,
-            alignment=ft.alignment.center_left,
+            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            border_radius=16,
+            bgcolor=ft.Colors.BLUE_GREY_900,
+            alignment=ft.Alignment(-1, 0),
             margin=ft.margin.only(top=4, bottom=4),
-            width=420,
+            width=600,
         )
+        
+        self.stream_container = ft.Row([bubble], alignment=ft.MainAxisAlignment.START)
         self.history_view.controls.append(self.stream_container)
-        self.page.update()
+        self.update()
 
     def append_stream_token(self, content: str) -> None:
         if not self.stream_active:
@@ -198,7 +256,7 @@ class ChatApp(ft.Container):
         self.stream_content += content
         if self.stream_text_control is not None:
             self.stream_text_control.value = self.stream_content
-            self.page.update()
+            self.stream_text_control.update() 
 
     def finish_stream(self) -> None:
         self.stream_active = False
@@ -206,34 +264,38 @@ class ChatApp(ft.Container):
         self.stream_content = ""
         self.stream_text_control = None
         self.stream_container = None
-        self.page.update()
+        self.update()
 
     def update_token_status(self, payload: dict[str, Any]) -> None:
         self.token_status.value = (
             f"Prompt: {payload.get('prompt_tokens', 0)} | Assistant: {payload.get('assistant_tokens', 0)} | "
             f"Total: {payload.get('total_session_tokens', 0)} / {payload.get('max_context', 0)}"
         )
-        self.page.update()
+        self.update()
 
-    async def handle_login(self, event: ft.ControlEvent) -> None:
+    # --- Actions ---
+    async def handle_auth(self, event: ft.ControlEvent) -> None:
         username = self.username_field.value.strip()
         password = self.password_field.value.strip()
         if not username or not password:
-            self.login_error_text.value = "Please enter both username and password."
-            self.page.update()
+            self.auth_error_text.value = "Please enter both a username and a password."
+            self.update()
             return
 
         self.clear_error()
-        self.set_status("Signing in...")
+        self.set_status("Connecting...")
+        
+        endpoint = "/login" if self.is_login_mode else "/signup"
+        
         try:
-            self.session_cookie, _ = await asyncio.to_thread(authenticate, self.base_url, username, password)
+            self.session_cookie, _ = await asyncio.to_thread(authenticate, self.base_url, endpoint, username, password)
             self.show_chat_view()
             self.set_status("Connected. Waiting for the chat history...")
             await self.connect_websocket()
-        except Exception as exc:  # pragma: no cover - UI feedback path
-            self.login_error_text.value = str(exc)
-            self.show_login_view()
-            self.set_status("Login failed")
+        except Exception as exc:
+            self.auth_error_text.value = str(exc)
+            self.show_auth_view()
+            self.set_status("Request failed")
 
     async def connect_websocket(self) -> None:
         if not self.session_cookie:
@@ -245,9 +307,10 @@ class ChatApp(ft.Container):
             self.reconnect_button.visible = False
             self.set_status("Connected to the chat stream")
             asyncio.create_task(self.listen_for_messages())
-        except Exception as exc:  # pragma: no cover - UI feedback path
+        except Exception as exc: 
             self.reconnect_button.visible = True
             self.set_status(f"Connection error: {exc}")
+            self.update()
 
     async def listen_for_messages(self) -> None:
         if not self.websocket:
@@ -267,9 +330,11 @@ class ChatApp(ft.Container):
         except websockets.ConnectionClosed:
             self.reconnect_button.visible = True
             self.set_status("The connection dropped. Reconnect to continue chatting.")
-        except Exception as exc:  # pragma: no cover - UI feedback path
+            self.update()
+        except Exception as exc: 
             self.reconnect_button.visible = True
             self.set_status(f"Stream error: {exc}")
+            self.update()
 
     async def handle_send_message(self, event: ft.ControlEvent | None = None) -> None:
         message = self.message_field.value.strip()
@@ -277,7 +342,6 @@ class ChatApp(ft.Container):
             return
         self.message_field.value = ""
         self.append_user_message(message)
-        self.page.update()
 
         if self.websocket is None:
             self.set_status("Not connected yet; please log in again.")
@@ -285,31 +349,32 @@ class ChatApp(ft.Container):
 
         try:
             await self.websocket.send(json.dumps({"action": "message", "content": message}))
-            self.set_status("Message sent. Waiting for the assistant response...")
-        except Exception as exc:  # pragma: no cover - UI feedback path
+            self.set_status("Message sent. Waiting for the bot to respond...")
+        except Exception as exc: 
             self.set_status(f"Unable to send message: {exc}")
 
     async def handle_stop(self, event: ft.ControlEvent) -> None:
         if self.websocket is not None:
             try:
                 await self.websocket.send(json.dumps({"action": "stop"}))
-            except Exception as exc:  # pragma: no cover - UI feedback path
+            except Exception as exc: 
                 self.set_status(f"Unable to stop the stream: {exc}")
         self.finish_stream()
         self.set_status("Streaming stopped.")
 
     async def handle_reconnect(self, event: ft.ControlEvent) -> None:
         self.reconnect_button.visible = False
-        self.page.update()
+        self.update()
         await self.connect_websocket()
 
 
 def main(page: ft.Page) -> None:
-    page.title = "Streaming Chat Bot"
+    page.title = "AI Chat Bot"
     page.window_width = 1000
     page.window_height = 800
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 24
+    
     page.add(ChatApp())
     page.update()
 
