@@ -1,8 +1,5 @@
-import json
 import asyncio
-from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Response, Request
-from groq import AsyncGroq
 from app.model_stream import stream_llm_response, listen_for_interrupt_or_complete
 from app.database.schemas import CreateUserSchema
 from sqlalchemy.orm import Session
@@ -17,10 +14,10 @@ from display_conversation import get_chat_history_db, count_tokens
 from app.websocket_manager import manager
 
 # Automatically load environment variables from .env
-load_dotenv()
+
 
 app = FastAPI(title="LLM Streaming WebSocket API")
-groq_client = AsyncGroq()
+
 
 @app.post("/sign_up")
 def sign_up(user_input: CreateUserSchema, db: Session = Depends(get_db)) -> User:
