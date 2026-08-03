@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from app.security.session_manager import COOKIE_NAME, get_current_user_websocket
 import os
 from display_conversation import get_chat_history_db, count_tokens
+from app.websocket_manager import manager
 
 # Automatically load environment variables from .env
 load_dotenv()
@@ -60,7 +61,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
     
     current_user = get_current_user_websocket(websocket, db)
 
-    await websocket.accept()
+    manager.connect(websocket, current_user.id)
 
     new_chat_data = {
         "user_id":current_user.id,
@@ -76,15 +77,14 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
     
     history = get_chat_history_db(db, chat.id)
     
-    await websocket.send_json({"type": "history", "data": history})
+    manager.send_message({"type": "history", "data": history}, websocket)
     
     try:
         while True:
-            user_input = await websocket.receive_text()
-            data = json.loads(user_input)
+            user_input = manager.receive_json_message()
             
-            if data.get("action") == "message":
-                user_message = data.get("content", "").strip()
+            if user_input.get("action") == "message":
+                user_message = user_input.get("content", "").strip()
                 if not user_message:
                     continue
        
@@ -121,7 +121,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
                     db.commit()
                     db.refresh(new_assistant_message)
                     
-                    await websocket.send_json({
+                    manager.send_message({
                         "type": "token_update",
                         "prompt_tokens": prompt_tokens,
                         "assistant_tokens": completion_tokens,
@@ -130,4 +130,5 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
                     })
                     
     except WebSocketDisconnect:
+        manager.disconnect(websocket, current_user.id)
         print("Client disconnected.")
