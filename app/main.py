@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Response, Request
 from app.model_stream import stream_llm_response, listen_for_interrupt_or_complete
-from app.database.schemas import CreateUserSchema
+from app.database.schemas import CreateUserSchema, UserResponseModel
 from sqlalchemy.orm import Session
 from app.database.engine import get_db
 from app import user_progress
@@ -10,7 +10,7 @@ from app.database.models import User, Chat, UserMessage, AssistantMessage
 from datetime import datetime, timezone
 from app.security.session_manager import COOKIE_NAME, get_current_user_websocket
 import os
-from display_conversation import get_chat_history_db, count_tokens
+from app.display_conversation import get_chat_history_db, count_tokens
 from app.websocket_manager import manager
 
 # Automatically load environment variables from .env
@@ -19,7 +19,7 @@ from app.websocket_manager import manager
 app = FastAPI(title="LLM Streaming WebSocket API")
 
 
-@app.post("/sign_up")
+@app.post("/sign_up", response_model=UserResponseModel)
 def sign_up(user_input: CreateUserSchema, db: Session = Depends(get_db)) -> User:
     return user_progress.sign_up(user_input, db)
 

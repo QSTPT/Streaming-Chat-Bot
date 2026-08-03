@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class CreateUserSchema(BaseModel):
     name: str
@@ -8,3 +8,10 @@ class CreateUserSchema(BaseModel):
         max_length=255,
         description="Password must be between 8 and 255 characters",
     )
+
+
+class UserResponseModel(BaseModel):
+    name: str
+    username:str
+    
+    model_config = ConfigDict(from_attributes=True)

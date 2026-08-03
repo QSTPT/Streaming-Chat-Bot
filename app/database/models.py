@@ -42,6 +42,7 @@ class UserMessage(Base):
     Chat = relationship("Chat")
     
 class AssistantMessage(Base):
+    __tablename__ = "AssistantMessage"
     id = Column(Integer, primary_key=True, index=True)
     model_name = Column(String(75), nullable=False)
     chat_id = Column(Integer, ForeignKey("Chat.id", ondelete="CASCADE"), nullable=False)
