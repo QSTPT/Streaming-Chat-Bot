@@ -14,7 +14,7 @@
 - temperature, max_token, stop_sequence has been set.
 - Token Usage per conversation is tracked. 
 - Websocket manager for Multiple users streaming at once.
-- Built-in logic to handle max Token hits.
+- Built-in logic to handle `max Token hits`.
 
 #
 
