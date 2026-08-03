@@ -52,10 +52,10 @@ def authenticate(base_url: str, username: str, password: str) -> tuple[str, str]
 
     raise RuntimeError("Login succeeded, but no session cookie was returned by the server")
 
-
-class ChatApp(ft.BaseControl):
+@ft.control("chat_app")
+class ChatApp(ft.Container):
     def __init__(self, page: ft.Page):
-        super().__init__()
+        super().__init__(expand=True, padding=12)
         self.page = page
         self.base_url = os.getenv("CHAT_BOT_BASE_URL", DEFAULT_BASE_URL)
         self.session_cookie: str | None = None
@@ -64,6 +64,8 @@ class ChatApp(ft.BaseControl):
         self.stream_content = ""
         self.stream_text_control: ft.Text | None = None
         self.stream_container: ft.Container | None = None
+        
+        # UI State Controls
         self.status_text = ft.Text("Ready to connect")
         self.token_status = ft.Text("Tokens: 0 / 0")
         self.reconnect_button = ft.TextButton("Reconnect", on_click=self.handle_reconnect, visible=False)
@@ -72,8 +74,10 @@ class ChatApp(ft.BaseControl):
         self.username_field = ft.TextField(label="Username", width=280)
         self.password_field = ft.TextField(label="Password", password=True, width=280)
         self.message_field = ft.TextField(label="Type a message", expand=True, on_submit=self.handle_send_message)
-        self.login_error_text = ft.Text("", color=ft.colors.RED_400)
-        self.view_container = ft.Container(expand=True, padding=12, content=self.build_login_view())
+        self.login_error_text = ft.Text("", color=ft.Colors.RED_400)
+        
+        # Set the active view directly on the root container
+        self.content = self.build_login_view()
 
     def build(self) -> ft.Container:
         return self.view_container
@@ -312,7 +316,7 @@ def main(page: ft.Page) -> None:
 
 
 def run_app() -> None:
-    ft.app(target=main)
+    ft.run(main)
 
 
 if __name__ == "__main__":
