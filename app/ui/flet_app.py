@@ -29,13 +29,19 @@ def build_cookie_header(cookie_name: str, cookie_value: str) -> str:
     return f"{cookie_name}={cookie_value}"
 
 
-def authenticate(base_url: str, endpoint: str, username: str, password: str) -> tuple[str, str]:
+def authenticate(base_url: str, endpoint: str, username: str, password: str, name: str = "") -> tuple[str, str]:
     api_url = build_api_url(base_url, endpoint)
-    payload = parse.urlencode({"username": username, "password": password}).encode("utf-8")
+    if endpoint == "/signup":
+        payload = json.dumps({"name": name, "username": username, "password": password}).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+    else:
+        payload = parse.urlencode({"username": username, "password": password}).encode("utf-8")
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        
     req = request.Request(
         api_url, 
-        data=payload, 
-        headers={"Content-Type": "application/x-www-form-urlencoded"}, 
+        data=payload,
+        headers=headers, 
         method="POST"
     )
 
@@ -54,6 +60,9 @@ def authenticate(base_url: str, endpoint: str, username: str, password: str) -> 
     for cookie in jar:
         if cookie.name == COOKIE_NAME:
             return cookie.value, body
+        
+    if endpoint == "/signup":
+        return "", body
 
     raise RuntimeError("Success, but no session cookie was returned by the server.")
 
@@ -76,6 +85,7 @@ class ChatApp(ft.Container):
         
         self.auth_title = ft.Text("Welcome Back", size=32, weight=ft.FontWeight.BOLD)
         self.auth_subtitle = ft.Text("Sign in to start chatting.", color=ft.Colors.BLUE_GREY_300)
+        self.name_field = ft.TextField(label="Full Name", width=320, border_radius=8, visible=False)
         self.username_field = ft.TextField(label="Username", width=320, border_radius=8)
         self.password_field = ft.TextField(label="Password", password=True, can_reveal_password=True, width=320, border_radius=8)
         self.auth_error_text = ft.Text("", color=ft.Colors.RED_400)
@@ -99,6 +109,7 @@ class ChatApp(ft.Container):
                 self.auth_title,
                 self.auth_subtitle,
                 ft.Container(height=10),
+                self.name_field,
                 self.username_field,
                 self.password_field,
                 ft.Container(height=10),
@@ -151,7 +162,7 @@ class ChatApp(ft.Container):
                     [
                         ft.Container(
                             content=self.token_status,
-                            padding=ft.padding.symmetric(horizontal=12, vertical=6),
+                            padding=ft.padding.only(left=12, right=12, top=6, bottom=6),
                             border=ft.border.all(1, ft.Colors.BLUE_GREY_800),
                             border_radius=20,
                             bgcolor=ft.Colors.BLUE_GREY_900,
@@ -182,11 +193,13 @@ class ChatApp(ft.Container):
             self.auth_subtitle.value = "Sign in to start chatting."
             self.auth_button.text = "Login"
             self.toggle_auth_button.text = "Don't have an account? Sign up here"
+            self.name_field.visible = False
         else:
             self.auth_title.value = "Create Account"
             self.auth_subtitle.value = "Sign up to start your journey."
             self.auth_button.text = "Sign Up"
             self.toggle_auth_button.text = "Already have an account? Log in here"
+            self.name_field.visible = True
             
         self.update()
 
@@ -203,7 +216,7 @@ class ChatApp(ft.Container):
         
         bubble = ft.Container(
             content=ft.Text(content, selectable=True),
-            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            padding=ft.padding.only(left=16, right=16, top=12, bottom=12),
             border_radius=16,
             bgcolor=ft.Colors.BLUE_800 if is_user else ft.Colors.BLUE_GREY_900,
             alignment=ft.Alignment(-1, 0),
@@ -238,7 +251,7 @@ class ChatApp(ft.Container):
         
         bubble = ft.Container(
             content=self.stream_text_control,
-            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            padding=ft.padding.only(left=16, right=16, top=12, bottom=12),
             border_radius=16,
             bgcolor=ft.Colors.BLUE_GREY_900,
             alignment=ft.Alignment(-1, 0),
@@ -275,8 +288,15 @@ class ChatApp(ft.Container):
 
     # --- Actions ---
     async def handle_auth(self, event: ft.ControlEvent) -> None:
+        name = self.name_field.value.strip()
         username = self.username_field.value.strip()
         password = self.password_field.value.strip()
+        
+        if not self.is_login_mode and not name:
+            self.auth_error_text.value = "Please enter your Name."
+            self.update()
+            return
+        
         if not username or not password:
             self.auth_error_text.value = "Please enter both a username and a password."
             self.update()
@@ -288,10 +308,20 @@ class ChatApp(ft.Container):
         endpoint = "/login" if self.is_login_mode else "/signup"
         
         try:
-            self.session_cookie, _ = await asyncio.to_thread(authenticate, self.base_url, endpoint, username, password)
+            if not self.is_login_mode:
+                await asyncio.to_thread(
+                authenticate, self.base_url, "/signup", username, password, name
+            )
+                self.set_status("Account created! Logging in...")
+                
+            self.session_cookie, _ = await asyncio.to_thread(
+            authenticate, self.base_url, "/login", username, password, name
+            )
+            
             self.show_chat_view()
-            self.set_status("Connected. Waiting for the chat history...")
+            self.set_status("Connected. Waiting for chat history...")
             await self.connect_websocket()
+            
         except Exception as exc:
             self.auth_error_text.value = str(exc)
             self.show_auth_view()

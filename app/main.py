@@ -3,7 +3,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Response, 
 from app.model_stream import stream_llm_response, listen_for_interrupt_or_complete
 from app.database.schemas import CreateUserSchema, UserResponseModel
 from sqlalchemy.orm import Session
-from app.database.engine import get_db
+from app.database.engine import get_db, Base, engine
 from app import user_progress
 from fastapi.security import OAuth2PasswordRequestForm
 from app.database.models import User, Chat, UserMessage, AssistantMessage
@@ -17,10 +17,10 @@ from app.websocket_manager import manager
 
 
 app = FastAPI(title="LLM Streaming WebSocket API")
+Base.metadata.create_all(bind=engine)
 
-
-@app.post("/sign_up", response_model=UserResponseModel)
-def sign_up(user_input: CreateUserSchema, db: Session = Depends(get_db)) -> User:
+@app.post("/signup", response_model=UserResponseModel)
+def sign_up(user_input: CreateUserSchema, db: Session = Depends(get_db)) -> dict:
     return user_progress.sign_up(user_input, db)
 
 @app.post("/login")

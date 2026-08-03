@@ -23,7 +23,7 @@ def sign_up(user_input, db:Session):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    return {"name":user_input.name, "username":user_input.username}
 
 
 def login(username, password, db:Session):
