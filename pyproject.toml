@@ -28,7 +28,8 @@ dependencies = [
     "passlib[argon2]",
     "websockets",
     "dotenv",
-    "groq"
+    "groq",
+    "tiktoken"
 ]
 
 [project.optional-dependencies]

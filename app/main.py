@@ -13,7 +13,7 @@ from app.database.models import User, Chat, UserMessage, AssistantMessage
 from datetime import datetime, timezone
 from app.security.session_manager import COOKIE_NAME, get_current_user_websocket
 import os
-from display_conversation import get_chat_history_db
+from display_conversation import get_chat_history_db, count_tokens
 
 # Automatically load environment variables from .env
 load_dotenv()
@@ -51,7 +51,7 @@ def logout(response: Response, request: Request, db: Session = Depends(get_db)) 
 
 @app.get("/chats")
 def display_chats(db:Session = Depends(get_db)):
-    current_user = get_current_user_websocket
+    current_user = get_current_user_websocket()
     chat = db.query(Chat).filter(Chat.user_id == current_user.id).all()
     get_chat_history_db(db, chat.id)
 
@@ -80,14 +80,14 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
     
     try:
         while True:
-            raw_data = await websocket.receive_text()
-            data = json.loads(raw_data)
+            user_input = await websocket.receive_text()
+            data = json.loads(user_input)
             
             if data.get("action") == "message":
                 user_message = data.get("content", "").strip()
                 if not user_message:
                     continue
-                
+       
                 new_user_message_data = {
                     "user_id":current_user.id,
                     "chat_id":chat.id,
@@ -102,9 +102,13 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
 
             
                 stream_task = asyncio.create_task(stream_llm_response(websocket, chat.id, db))
-                full_response = await listen_for_interrupt_or_complete(websocket, stream_task)
+                result = await listen_for_interrupt_or_complete(websocket, stream_task)
 
-                if full_response:
+                if result:
+                    full_response = result["full_response"]
+                    prompt_tokens = result["prompt_tokens"]
+                    completion_tokens = result["completion_tokens"]
+    
                     new_assistant_message_data = {
                         "model_name":"llama-3.3-70b-versatile", #In the future we will add it automatically.
                         "chat_id":chat.id,
@@ -116,6 +120,14 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
                     db.add(new_assistant_message)
                     db.commit()
                     db.refresh(new_assistant_message)
+                    
+                    await websocket.send_json({
+                        "type": "token_update",
+                        "prompt_tokens": prompt_tokens,
+                        "assistant_tokens": completion_tokens,
+                        "total_session_tokens": prompt_tokens + completion_tokens,
+                        "max_context": 131072
+                    })
                     
     except WebSocketDisconnect:
         print("Client disconnected.")

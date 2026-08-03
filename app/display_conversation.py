@@ -1,6 +1,7 @@
 from sqlalchemy import literal_column, union_all
 from app.database.engine import Session
 from app.database.models import UserMessage, AssistantMessage
+import tiktoken
 
 def get_chat_history_db(db:Session, chat_id: int):
     # Select user messages with a fixed 'role' column
@@ -29,3 +30,8 @@ def get_chat_history_db(db:Session, chat_id: int):
     )
 
     return results
+
+
+def count_tokens(text: str, model: str = "gpt-4o") -> int:
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))

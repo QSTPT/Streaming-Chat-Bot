@@ -4,23 +4,31 @@ from fastapi import WebSocket, Depends
 from app.database.engine import Session, get_db
 from main import groq_client
 from database.models import UserMessage, AssistantMessage
+from display_conversation import get_chat_history_db, count_tokens
 
+MAX_ALLOWED_CONTEXT = 125000  # Safe buffer below Groq's 131,072 max limit
+RESERVED_FOR_RESPONSE = 1024
 
 async def stream_llm_response(websocket: WebSocket, chat_id, db: Session = Depends(get_db)) -> str:
     
-    user_content = db.query(UserMessage).filter(UserMessage.chat_id == chat_id).first().content
+    raw_history = get_chat_history_db(db, chat_id)
+
+    messages = [{"role": msg.role, "content": msg.content} for msg in raw_history]
     
-    assistant_content = db.query(AssistantMessage).filter(AssistantMessage.chat_id == chat_id).first().content()
-    both_side_message_list = [user_content, assistant_content]
+    prompt_tokens = sum(count_tokens(m["content"]) for m in messages)
+    
+    while (prompt_tokens + RESERVED_FOR_RESPONSE) > MAX_ALLOWED_CONTEXT and len(messages) > 1:
+        removed_msg = messages.pop(0) # if any system prompt then pop(1)
+        prompt_tokens -= count_tokens(removed_msg["content"])
     
     accumulated_text = ""
     
     response_stream = await groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
-        messages=both_side_message_list,
+        messages=messages,
         stream=True,
         temperature=0.7,
-        max_tokens=1024,
+        max_tokens=RESERVED_FOR_RESPONSE,
     )
 
     async for chunk in response_stream:
@@ -30,7 +38,11 @@ async def stream_llm_response(websocket: WebSocket, chat_id, db: Session = Depen
             await websocket.send_json({"type": "token", "content": delta})
 
     await websocket.send_json({"type": "end"})
-    return accumulated_text
+    return {
+        "full_response": accumulated_text,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": count_tokens(accumulated_text)
+    }
 
 async def listen_for_interrupt_or_complete(websocket: WebSocket, stream_task: asyncio.Task) -> str:
     while not stream_task.done():
