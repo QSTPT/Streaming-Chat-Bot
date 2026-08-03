@@ -52,11 +52,10 @@ def authenticate(base_url: str, username: str, password: str) -> tuple[str, str]
 
     raise RuntimeError("Login succeeded, but no session cookie was returned by the server")
 
-@ft.control("chat_app")
+
 class ChatApp(ft.Container):
-    def __init__(self, page: ft.Page):
+    def __init__(self):
         super().__init__(expand=True, padding=12)
-        self.page = page
         self.base_url = os.getenv("CHAT_BOT_BASE_URL", DEFAULT_BASE_URL)
         self.session_cookie: str | None = None
         self.websocket: Any | None = None
@@ -69,24 +68,24 @@ class ChatApp(ft.Container):
         self.status_text = ft.Text("Ready to connect")
         self.token_status = ft.Text("Tokens: 0 / 0")
         self.reconnect_button = ft.TextButton("Reconnect", on_click=self.handle_reconnect, visible=False)
-        self.stop_button = ft.ElevatedButton("Stop generating", on_click=self.handle_stop, visible=False)
+        self.stop_button = ft.Button("Stop generating", on_click=self.handle_stop, visible=False)
         self.history_view = ft.ListView(expand=True, spacing=10, padding=10, auto_scroll=True)
         self.username_field = ft.TextField(label="Username", width=280)
         self.password_field = ft.TextField(label="Password", password=True, width=280)
         self.message_field = ft.TextField(label="Type a message", expand=True, on_submit=self.handle_send_message)
-        self.login_error_text = ft.Text("", color=ft.Colors.RED_400)
+        self.login_error_text = ft.Text("", color="red400")
         
         # Set the active view directly on the root container
         self.content = self.build_login_view()
 
     def build(self) -> ft.Container:
-        return self.view_container
+        return self.stream_container
 
     def build_login_view(self) -> ft.Column:
         return ft.Column(
             [
                 ft.Text("Welcome back", size=28, weight=ft.FontWeight.BOLD),
-                ft.Text("Sign in to start chatting with the local streaming bot.", color=ft.colors.BLUE_GREY_300),
+                ft.Text("Sign in to start chatting with the local streaming bot.", color=ft.Colors.BLUE_GREY_300),
                 ft.Divider(),
                 self.username_field,
                 self.password_field,
@@ -311,7 +310,7 @@ def main(page: ft.Page) -> None:
     page.window_height = 800
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 24
-    page.add(ChatApp(page))
+    page.add(ChatApp())
     page.update()
 
 
