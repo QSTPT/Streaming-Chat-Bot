@@ -8,6 +8,7 @@ port = 8000
 
 [project.scripts]
 chat-bot = "app.main:app"
+chat-ui = "app.ui.flet_app:run_app"
 
 [build-system]
 requires = ["setuptools>=61.0"]

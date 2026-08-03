@@ -15,13 +15,13 @@
 - Token Usage per conversation is **tracked**. 
 - Websocket manager **Handles** Multiple users <ins>streaming at once</ins>.
 - Built-in logic to handle `max Token hits`.
+- a responsive Frontend.
 
 #
 
 ### Later on:
 - Redis will be added for `using chats` and postgres for `older chats`.
 - handle production concerns.
-- add a responsive Frontend.
 - use fixed-sized seed to debug
 
 #
@@ -41,7 +41,9 @@
 - clone the repo
 - pip install -e .
 
-#
+### How to run the frontend UI?
+- Start the FastAPI backend: `uvicorn app.main:app --reload`
+- In a second terminal, launch the Flet app: `python -m app.ui.flet_app`
 
 ### Why not SSE instead of Websocket?
 SSE is made for one line communication, user **can't** send events when Ai is mid response; which means no `Stop Generating` which is **bad**.
