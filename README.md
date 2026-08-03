@@ -12,12 +12,14 @@
 - Websocket has been used for this chat-bot; so you can send events
 - each chat session is stored inside postgresql, including messages.
 - temperature, max_token, stop_sequence has been set.
+- Token Usage per conversation is tracked. 
+- Websocket manager for Multiple users streaming at once.
+- Built-in logic to handle max Token hits.
 
 #
 
 ### Later on:
-- Token Usage per conversation will be tracked.
-- Redis will be added for `using chats` and postgres for older chats.
+- Redis will be added for `using chats` and postgres for `older chats`.
 - handle production concerns.
 - add a responsive Frontend.
 - use fixed-sized seed to debug
@@ -26,8 +28,6 @@
 
 ### What are the Productivity Concerns?
 - What happens if the connection drops mid-stream?
-- What happens when max_token is hit?
-- Concurrency: Multiple users streaming at once?
 
 #
 
