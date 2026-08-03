@@ -40,7 +40,7 @@ def hash_session(token:str) -> str:
 def verify_session(db:Session, token:str) -> UserSession | None:
     return (
         db.query(UserSession)
-        .options(joinedload(UserSession.user))
+        .options(joinedload(UserSession.User))
         .filter(
             UserSession.token == hash_session(token),
             UserSession.expires_at > datetime.now(timezone.utc),

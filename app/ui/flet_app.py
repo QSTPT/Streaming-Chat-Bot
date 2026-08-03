@@ -162,8 +162,8 @@ class ChatApp(ft.Container):
                     [
                         ft.Container(
                             content=self.token_status,
-                            padding=ft.padding.only(left=12, right=12, top=6, bottom=6),
-                            border=ft.border.all(1, ft.Colors.BLUE_GREY_800),
+                            padding=ft.Padding.only(left=12, right=12, top=6, bottom=6),
+                            border=ft.Border.all(1, ft.Colors.BLUE_GREY_800),
                             border_radius=20,
                             bgcolor=ft.Colors.BLUE_GREY_900,
                         ),
@@ -216,13 +216,13 @@ class ChatApp(ft.Container):
         
         bubble = ft.Container(
             content=ft.Text(content, selectable=True),
-            padding=ft.padding.only(left=16, right=16, top=12, bottom=12),
+            padding=ft.Padding.only(left=16, right=16, top=12, bottom=12),
             border_radius=16,
             bgcolor=ft.Colors.BLUE_800 if is_user else ft.Colors.BLUE_GREY_900,
             alignment=ft.Alignment(-1, 0),
-            margin=ft.margin.only(top=4, bottom=4),
+            margin=ft.Margin.only(top=4, bottom=4),
             width=600, 
-            animate=ft.animation.Animation(200, "decelerate"),
+            animate=ft.Animation(duration=200, curve=ft.AnimationCurve.DECELERATE),
         )
         
         return ft.Row(
@@ -251,11 +251,11 @@ class ChatApp(ft.Container):
         
         bubble = ft.Container(
             content=self.stream_text_control,
-            padding=ft.padding.only(left=16, right=16, top=12, bottom=12),
+            padding=ft.Padding.only(left=16, right=16, top=12, bottom=12),
             border_radius=16,
             bgcolor=ft.Colors.BLUE_GREY_900,
             alignment=ft.Alignment(-1, 0),
-            margin=ft.margin.only(top=4, bottom=4),
+            margin=ft.Margin.only(top=4, bottom=4),
             width=600,
         )
         
@@ -333,7 +333,7 @@ class ChatApp(ft.Container):
         ws_url = build_websocket_url(self.base_url, DEFAULT_WS_PATH)
         headers = {"Cookie": build_cookie_header(COOKIE_NAME, self.session_cookie)}
         try:
-            self.websocket = await websockets.connect(ws_url, extra_headers=headers, ping_interval=None)
+            self.websocket = await websockets.connect(ws_url, additional_headers=headers, ping_interval=None)
             self.reconnect_button.visible = False
             self.set_status("Connected to the chat stream")
             asyncio.create_task(self.listen_for_messages())

@@ -10,8 +10,9 @@ from app.database.models import User, Chat, UserMessage, AssistantMessage
 from datetime import datetime, timezone
 from app.security.session_manager import COOKIE_NAME, get_current_user_websocket
 import os
-from app.display_conversation import get_chat_history_db, count_tokens
+from app.display_conversation import get_chat_history_db
 from app.websocket_manager import manager
+import json
 
 # Automatically load environment variables from .env
 
@@ -58,7 +59,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
     
     current_user = get_current_user_websocket(websocket, db)
 
-    manager.connect(websocket, current_user.id)
+    await manager.connect(websocket, current_user.id)
 
     new_chat_data = {
         "user_id":current_user.id,
@@ -74,14 +75,14 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
     
     history = get_chat_history_db(db, chat.id)
     
-    manager.send_message({"type": "history", "data": history}, websocket)
+    await manager.send_message({"type": "history", "data": history}, websocket)
     
     try:
         while True:
-            user_input = manager.receive_json_message()
+            data = await manager.receive_json_message(websocket)
             
-            if user_input.get("action") == "message":
-                user_message = user_input.get("content", "").strip()
+            if data.get("action") == "message":
+                user_message = data.get("content", "").strip()
                 if not user_message:
                     continue
        
@@ -118,14 +119,14 @@ async def websocket_chat_endpoint(websocket: WebSocket, db:Session = Depends(get
                     db.commit()
                     db.refresh(new_assistant_message)
                     
-                    manager.send_message({
+                    await manager.send_message({
                         "type": "token_update",
                         "prompt_tokens": prompt_tokens,
                         "assistant_tokens": completion_tokens,
                         "total_session_tokens": prompt_tokens + completion_tokens,
                         "max_context": 131072
-                    })
+                    }, websocket)
                     
     except WebSocketDisconnect:
-        manager.disconnect(websocket, current_user.id)
+        await manager.disconnect(websocket, current_user.id)
         print("Client disconnected.")
