@@ -2,7 +2,7 @@
 
 #
 
-## What is this project?
+### What is this project?
 
 **Streaming Chat Bot** made with fast-api and <ins>Websocket</ins>.
 
