@@ -30,7 +30,8 @@ dependencies = [
     "websockets",
     "dotenv",
     "groq",
-    "tiktoken"
+    "tiktoken",
+    "python-multipart"
 ]
 
 [project.optional-dependencies]

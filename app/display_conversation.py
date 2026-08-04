@@ -29,7 +29,15 @@ def get_chat_history_db(db:Session, chat_id: int):
         .all()
     )
 
-    return results
+    return [
+        {
+            "id": row.id,
+            "role": row.role,
+            "content": row.content,
+            "created_at": row.created_at.isoformat() if row.created_at else None
+        }
+        for row in results
+    ]
 
 
 def count_tokens(text: str, model: str = "gpt-4o") -> int:
