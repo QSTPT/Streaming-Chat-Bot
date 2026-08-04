@@ -1,3 +1,7 @@
+<img width="600" height="321" alt="output" src="https://github.com/user-attachments/assets/054699ff-2f73-4f4e-82d6-6e2e2546cdd7" />
+
+#
+
 # What is this project?
 
 **Streaming Chat Bot** made with fast-api and <ins>Websocket</ins>.
