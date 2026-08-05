@@ -6,7 +6,9 @@
 
 **Streaming Chat Bot** made with fast-api and <ins>Websocket</ins>.
 
-> ⚠️ Under Active development
+**This project is a demo version, there are many bugs inside it. based on each phase my skills will grow and i will become better.
+
+> ☑️ Demo Mode Completed.
 
 #
 
@@ -20,18 +22,6 @@
 - Websocket manager **Handles** Multiple users <ins>streaming at once</ins>.
 - Built-in logic to handle `max Token hits`.
 - a responsive Frontend.
-
-#
-
-### Later on:
-- Redis will be added for `using chats` and postgres for `older chats`.
-- handle production concerns.
-- use fixed-sized seed to debug
-
-#
-
-### What are the Productivity Concerns?
-- What happens if the connection drops mid-stream?
 
 #
 
