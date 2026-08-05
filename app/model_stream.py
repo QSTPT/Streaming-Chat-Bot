@@ -3,7 +3,6 @@ import asyncio
 from fastapi import WebSocket, Depends
 from app.database.engine import Session, get_db
 from app.client import groq_client
-from app.database.models import UserMessage, AssistantMessage
 from app.display_conversation import get_chat_history_db, count_tokens
 
 MAX_ALLOWED_CONTEXT = 125000  # Safe buffer below Groq's 131,072 max limit
