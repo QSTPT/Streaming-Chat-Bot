@@ -6,7 +6,7 @@
 
 **Streaming Chat Bot** made with fast-api and <ins>Websocket</ins>.
 
-**This project is a demo version, there are many bugs inside it. based on each phase my skills will grow and i will become better.
+**This project is a demo version, there are many bugs inside it. based on each phase my skills will grow and i will become better.**
 
 > ☑️ Demo Mode Completed.
 
