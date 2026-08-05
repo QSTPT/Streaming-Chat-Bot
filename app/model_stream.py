@@ -13,7 +13,7 @@ async def stream_llm_response(websocket: WebSocket, chat_id, db: Session = Depen
     
     raw_history = get_chat_history_db(db, chat_id)
 
-    messages = [{"role": msg.role, "content": msg.content} for msg in raw_history]
+    messages = [{"role": msg["role"], "content": msg["content"]} for msg in raw_history]
     
     prompt_tokens = sum(count_tokens(m["content"]) for m in messages)
     
